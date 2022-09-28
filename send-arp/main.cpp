@@ -44,14 +44,14 @@ Mac get_my_mac_address(char* dev){
 
     close(fd);
 
-    Mac_address = (uint8_t*)ifr.ifr_hwaddr.sa_data;
+    Mac Mac_address = (uint8_t*)ifr.ifr_hwaddr.sa_data;
 
     return Mac_address;
 };
 
 //참고 : https://stackoverflow.com/questions/2283494/get-ip-address-of-an-interface-on-linux
 //참고 : https://stackoverflow.com/questions/49335001/get-local-ip-address-in-c
-IP get_my_ip_address(char* dev){
+Ip get_my_ip_address(char* dev){
     int fd;
     struct ifreq ifr;
     uint32_t ip_address;
@@ -71,7 +71,7 @@ IP get_my_ip_address(char* dev){
 };
 
 int send_arp(pcap_t* handle, Mac ethernet_DesMac, Mac ethernet_SrcMac, u_short req, Mac arp_SrcMac, u_long arp_SrcIp, Mac arp_TargetMac, u_long arp_TargetIp) {
-	arp_packet packet;
+	EthArpPacket packet;
 
 	packet.eth_.dmac_ = ethernet_DesMac;
 	packet.eth_.smac_ = ethernet_SrcMac;
@@ -88,7 +88,7 @@ int send_arp(pcap_t* handle, Mac ethernet_DesMac, Mac ethernet_SrcMac, u_short r
 	packet.arp_.tmac_ = arp_TargetMac;
 	packet.arp_.tip_ = arp_TargetIp;
 
-	return pcap_sendpacket(handle, reinterpret_cast<const u_char*>(&packet), sizeof(arp_packet));
+	return pcap_sendpacket(handle, reinterpret_cast<const u_char*>(&packet), sizeof(packet));
 }
 
 int main(int argc, char* argv[]) {
@@ -108,12 +108,12 @@ int main(int argc, char* argv[]) {
     Mac my_mac_address;
     my_mac_address = get_my_mac_address(dev);
 
-    IP my_ip_address;
+    Ip my_ip_address;
     my_ip_address = get_my_ip_address(dev);
 
-    Ip sender_ip = IP(argv[2]);
+    Ip sender_ip = Ip(argv[2]);
 
-    Ip target_ip = IP(argv[3]);
+    Ip target_ip = Ip(argv[3]);
 
 	/*
 	EthArpPacket packet;
@@ -136,7 +136,7 @@ int main(int argc, char* argv[]) {
 	int res = pcap_sendpacket(handle, reinterpret_cast<const u_char*>(&packet), sizeof(EthArpPacket));
 	*/
 
-	int res = send_arp(handle, Mac("ff:ff:ff:ff:ff:ff"), my_mac, htons(ArpHdr::Request), my_mac, htonl(my_ip), Mac("00:00:00:00:00:00"), htonl(sender_ip));
+	int res = send_arp(handle, Mac("ff:ff:ff:ff:ff:ff"), my_mac_address, htons(ArpHdr::Request), my_mac_address, htonl(my_ip_address), Mac("00:00:00:00:00:00"), htonl(sender_ip));
 
 	if (res != 0) {
 		fprintf(stderr, "pcap_sendpacket return %d error=%s\n", res, pcap_geterr(handle));
@@ -146,7 +146,7 @@ int main(int argc, char* argv[]) {
     }
 
     struct pcap_pkthdr* header;
-    uint8_t packet;
+    const u_char* packet;
 
 	while(1){ //pcap-test code
 		int next = pcap_next_ex(handle, &header, &packet);
@@ -157,7 +157,7 @@ int main(int argc, char* argv[]) {
 			break;
 		}
 
-		res = send_arp(handle, Mac("ff:ff:ff:ff:ff:ff"), my_mac, htons(ArpHdr::Request), my_mac, htonl(my_ip), Mac("00:00:00:00:00:00"), htonl(sender_ip));
+		res = send_arp(handle, Mac("ff:ff:ff:ff:ff:ff"), my_mac_address, htons(ArpHdr::Request), my_mac_address, htonl(my_ip_address), Mac("00:00:00:00:00:00"), htonl(sender_ip));
 
 		if (res != 0) {
 			fprintf(stderr, "pcap_sendpacket return %d error=%s\n", res, pcap_geterr(handle));
