@@ -156,7 +156,10 @@ int main(int argc, char* argv[]) {
 			printf("pcap_next_ex return %d(%s)\n", next, pcap_geterr(handle));
 			break;
 		}
-
+		
+		// 얘가 내가 원하는 답 pcap이 맞는지 확인하기 
+		// 상대 맥이랑 상대 ip랑 넣어주기 send_arp 수정 (저번 pcap-test참고)
+		
 		res = send_arp(handle, Mac("ff:ff:ff:ff:ff:ff"), my_mac_address, htons(ArpHdr::Request), my_mac_address, htonl(my_ip_address), Mac("00:00:00:00:00:00"), htonl(sender_ip));
 
 		if (res != 0) {
