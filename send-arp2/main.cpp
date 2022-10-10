@@ -104,49 +104,31 @@ int main(int argc, char* argv[]) {
 		fprintf(stderr, "couldn't open device %s(%s)\n", dev, errbuf);
 		return -1;
 	}
+	
+	Mac my_mac_address;
+	my_mac_address = get_my_mac_address(dev);
 
-    Mac my_mac_address;
-    my_mac_address = get_my_mac_address(dev);
+	Ip my_ip_address;
+	my_ip_address = get_my_ip_address(dev);
 
-    Ip my_ip_address;
-    my_ip_address = get_my_ip_address(dev);
+	Ip sender_ip = Ip(argv[2]);
+	Ip target_ip = Ip(argv[3]);
+	
+	Mac sender_mac;
 
-    Ip sender_ip = Ip(argv[2]);
-
-    Ip target_ip = Ip(argv[3]);
-
-	/*
-	EthArpPacket packet;
-
-	packet.eth_.dmac_ = Mac("ff:ff:ff:ff:ff:ff");
-	packet.eth_.smac_ = my_mac_address;
-	packet.eth_.type_ = htons(EthHdr::Arp);
-
-	packet.arp_.hrd_ = htons(ArpHdr::ETHER);
-	packet.arp_.pro_ = htons(EthHdr::Ip4);
-	packet.arp_.hln_ = Mac::SIZE;
-	packet.arp_.pln_ = Ip::SIZE;
-    
-	packet.arp_.op_ = htons(ArpHdr::Request);
-	packet.arp_.smac_ = my_mac_address;
-	packet.arp_.sip_ = htonl(my_ip_address);
-	packet.arp_.tmac_ = Mac("00:00:00:00:00:00");
-	packet.arp_.tip_ = htonl(sender_ip);
-
-	int res = pcap_sendpacket(handle, reinterpret_cast<const u_char*>(&packet), sizeof(EthArpPacket));
-	*/
-
-	int res = send_arp(handle, Mac("ff:ff:ff:ff:ff:ff"), my_mac_address, htons(ArpHdr::Request), my_mac_address, htonl(my_ip_address), Mac("00:00:00:00:00:00"), htonl(sender_ip));
+	int res = send_arp(handle, Mac("ff:ff:ff:ff:ff:ff"), my_mac_address, 
+			   htons(ArpHdr::Request), my_mac_address, 
+			   htonl(my_ip_address), Mac("00:00:00:00:00:00"), htonl(sender_ip));
 
 	if (res != 0) {
 		fprintf(stderr, "pcap_sendpacket return %d error=%s\n", res, pcap_geterr(handle));
         
         pcap_close(handle);
         return -1;
-    }
+	}
 
-    struct pcap_pkthdr* header;
-    const u_char* packet;
+	struct pcap_pkthdr* header;
+	const u_char* packet;
 
 	while(1){ //pcap-test code
 		int next = pcap_next_ex(handle, &header, &packet);
@@ -160,15 +142,30 @@ int main(int argc, char* argv[]) {
 		// 얘가 내가 원하는 답 pcap이 맞는지 확인하기 
 		// 상대 맥이랑 상대 ip랑 넣어주기 send_arp 수정 (저번 pcap-test참고)
 		
-		res = send_arp(handle, Mac("ff:ff:ff:ff:ff:ff"), my_mac_address, htons(ArpHdr::Request), my_mac_address, htonl(my_ip_address), Mac("00:00:00:00:00:00"), htonl(sender_ip));
+		EthHdr* resPacket = (EthHdr*)packet;
+		if (resPacket->type() != EthHdr::Arp){
+			continue;
+		}
+		
+		ArpHdr* resArpPacket = (ArpHdr*)(packet + sizeof(EthHdr));
+		if (resArpPacket->type() != ArpHdr::Arp){
+			continue;
+		}
+		
+		if (resArpPacket->tmac() == my_mac_address && resArpPacket->tip() == my_ip_address && resArpPacket->sip() == sender_ip){
+			sender_mac = resArpPacket->smac();
+			break;
+		}
+	}
+		
+	res = send_arp(handle, sender_mac, my_mac_address, htons(ArpHdr::RePky), 
+		       my_mac_address, htonl(target_ip), sender_mac, htonl(sender_ip));
 
-		if (res != 0) {
-			fprintf(stderr, "pcap_sendpacket return %d error=%s\n", res, pcap_geterr(handle));
-        
+	if (res != 0) {
+		fprintf(stderr, "pcap_sendpacket return %d error=%s\n", res, pcap_geterr(handle));
        		pcap_close(handle);
         	return -1;
     	}
-	}
 
 	pcap_close(handle);
 }
